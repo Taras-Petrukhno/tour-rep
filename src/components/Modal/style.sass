@@ -1,0 +1,60 @@
+
+.modal
+    &__overlay
+        position: fixed
+        inset: 0
+        background: rgba(0, 0, 0, 0.4)
+        display: flex
+        justify-content: center
+        align-items: center
+        z-index: 1000
+        backdrop-filter: blur(3px)
+
+    &__window
+        background: #fff
+        border-radius: 12px
+        padding: 32px 24px
+        width: 100%
+        max-width: 420px
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15)
+        text-align: center
+        animation: modalFade 0.25s ease
+
+    &__title
+        font-size: 20px
+        font-weight: 600
+        margin-bottom: 12px
+        color: #1c1c1e
+
+    &__text
+        font-size: 16px
+        color: #555
+        margin-bottom: 24px
+        line-height: 1.5
+
+    &__button
+        display: inline-block
+        background-color: #2f5dff
+        color: #fff
+        font-size: 16px
+        font-weight: 500
+        padding: 12px 28px
+        border-radius: 8px
+        border: none
+        cursor: pointer
+        transition: background 0.2s ease, transform 0.1s ease
+
+        &:hover
+            background-color: #234de0
+
+        &:active
+            transform: scale(0.98)
+
+@keyframes modalFade
+    from
+        opacity: 0
+        transform: translateY(-10px)
+
+    to
+        opacity: 1
+        transform: translateY(0)

@@ -1,0 +1,93 @@
+.countries-select
+    margin-top: 50px
+    position: relative
+    left: 50%
+    transform: translateX(-50%)
+    width: 100%
+    max-width: 400px
+    background: #f7f7f7
+    border: 1px solid #dadada
+    border-radius: 8px
+    padding: 20px
+    display: flex
+    gap: 20px
+    flex-direction: column
+    align-items: center
+
+    &__title
+        font-size: 24px
+        font-weight: 600
+
+    &__block
+        display: flex
+        flex-direction: column
+        width: 100%
+        gap: 8px
+
+    &__input-wrapper
+        position: relative
+        display: flex
+        justify-content: space-between
+        align-items: center
+        border: 1px solid #dadada
+        border-radius: 8px
+        background: #fff
+
+    &__input
+        padding: 6px 10px
+        flex: 1 1 0
+
+    &__reset
+        cursor: pointer
+        width: 30px
+        height: 30px
+
+    &__list
+        border: 1px solid #dadada
+        border-radius: 8px
+        padding: 10px 10px
+        background: #fff
+        display: flex
+        flex-direction: column
+        gap: 20px
+
+    &__item
+        cursor: pointer
+        display: flex
+        gap: 10px
+
+    &__submit
+        align-self: center
+        width: 100%
+        overflow: hidden
+        background: #3251f6
+        color: #fff
+        border-radius: 8px
+        padding: 10px
+        cursor: pointer
+        font-weight: 500
+        pointer-events: none
+        filter: grayscale(.9)
+        transition: all .5s
+
+        &--active
+            background: #3251f6
+            pointer-events: auto
+            filter: none
+
+        &--in-process
+            pointer-events: auto
+            filter: none
+            animation-name: loading-form-btn
+            animation-duration: 1s
+            animation-direction: alternate
+            animation-iteration-count: infinite
+            animation-timing-function: ease-in-out
+
+    @keyframes loading-form-btn
+        0%
+            width: 100%
+
+        100%
+            width: 100px
+            background: #2237ae
