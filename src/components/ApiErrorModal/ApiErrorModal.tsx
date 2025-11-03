@@ -5,7 +5,7 @@ export default function ErrorModal({
   btnHandler,
 }: {
   error: Error | null;
-  btnHandler: () => void;
+  btnHandler: (state: null) => void;
 }) {
   if (!error) return null;
   return (

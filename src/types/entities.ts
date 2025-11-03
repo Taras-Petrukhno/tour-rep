@@ -38,3 +38,21 @@ export interface Price {
   endDate: string;   
   hotelID?: number;  
 }
+
+type Tour = {
+  id: string;
+  amount: number;
+  currency: string;
+  startDate: string;
+  endDate: string;
+  hotelID: string;
+  hotel: {
+    id: number;
+    name: string;
+    img: string;
+    cityId: number;
+    cityName: string;
+    countryId: string;
+    countryName: string;
+  };
+};

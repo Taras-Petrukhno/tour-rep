@@ -6,6 +6,7 @@ import {
   searchGeo,
   startSearchPrices,
   getSearchPrices,
+  getHotels,
 } from "@/api";
 import { Country, Hotel, City } from "@types/entities";
 import cityImage from "@/public/components/CountriesSelect/city.png";
@@ -15,8 +16,10 @@ type GeoEntity = Country | City | Hotel;
 
 export default function CountriesInput({
   apiErrorHandler,
+  setTours,
 }: {
-  apiErrorHandler: () => void;
+  apiErrorHandler: (error: Error) => void;
+  setTours: (tours: []) => void;
 }) {
   const [loading, setLoading] = useState<boolean>(false);
   const [places, setPlaces] = useState<GeoEntity[]>([]);
@@ -26,7 +29,7 @@ export default function CountriesInput({
   const [isOpen, setIsOpen] = useState(true);
 
   const [isWaitingToken, setIsWaitingToken] = useState(false);
-  const [prices, setPrices] = useState(null);
+  const [prices, setPrices] = useState({});
 
   async function fetchCountries() {
     try {
@@ -91,6 +94,8 @@ export default function CountriesInput({
     let cooldown: Date | null = null;
     let attempt = 0;
     const maxPermitedAttempts = 3;
+    const countryID =
+      "countryId" in selected ? selected.countryId : selected.id;
     setIsWaitingToken(true);
 
     async function fetchPrices() {
@@ -100,8 +105,6 @@ export default function CountriesInput({
       attempt++;
 
       try {
-        const countryID =
-          "countryId" in selected ? selected.countryId : selected.id;
         const resToken = await startSearchPrices(countryID);
         const dataToken = await resToken.json();
         cooldown = new Date(dataToken.waitUntil);
@@ -132,6 +135,28 @@ export default function CountriesInput({
       }
     }
     await fetchPrices();
+
+    const hotelsResponse = await getHotels(countryID);
+    const hotels = await hotelsResponse.json();
+
+    const arrayPrices = Object.values(prices).flatMap((price) =>
+      Object.values(price)
+    );
+    const arrayHotels = Object.values(hotels);
+
+    let tours = arrayPrices.map((price) => {
+      const matchHotel = arrayHotels.find((hotel) => price.hotelID == hotel.id);
+
+      if (matchHotel) price.hotel = matchHotel;
+
+      return price;
+    });
+    tours = tours.filter((tour) => "hotel" in tour);
+
+    console.log("prices", prices);
+    console.log("hotels", hotels);
+    console.log("tours", tours);
+    setTours(tours);
     setIsWaitingToken(false);
   }
 

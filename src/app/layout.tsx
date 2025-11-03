@@ -7,7 +7,6 @@ const Montser = Montserrat({
   subsets: ["latin"],
 });
 
-
 export const metadata: Metadata = {
   title: "Tour App",
   description: "Super tour application built with Next.js",
@@ -20,10 +19,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${Montser.variable} antialiased`}
-      >
-        {children}
+      <body className={`${Montser.variable} antialiased`}>
+        <main>{children}</main>
       </body>
     </html>
   );

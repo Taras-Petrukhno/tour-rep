@@ -1,1 +1,66 @@
 
+.tour-list
+    max-width: 700px
+    width: 100%
+    margin: 0 auto
+    padding: 25px
+    display: grid
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr))
+    gap: 20px
+
+.tour
+    display: flex
+    flex-direction: column
+    align-items: flex-start
+    gap: 5px
+    padding: 10px
+    background-color: #fff
+    border-radius: 12px
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1)
+    transition: transform 0.2s ease, box-shadow 0.2s ease
+
+    &:hover
+        transform: translateY(-4px)
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15)
+
+    &__empty-state
+        margin: 0 auto
+        max-width: 100%
+        white-space: normal
+
+    &__img
+        width: 100%
+        height: 180px
+        border-radius: 12px
+        object-fit: cover
+        border-bottom: 1px solid #eee
+
+    &__title
+        font-size: 18px
+        font-weight: 600
+
+    &__place
+        font-size: 14px
+        color: #555
+
+        &::before
+            content: "📍"
+            font-size: 14px
+
+    &__date
+        font-size: 14px
+        color: #777
+
+    &__price
+        font-size: 18px
+        font-weight: 700
+        color: #000
+
+    &__link
+        text-decoration: none
+        color: #1a4ed8
+        font-weight: 500
+        font-size: 14px
+
+        &:hover
+            text-decoration: underline
