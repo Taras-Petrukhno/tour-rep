@@ -39,7 +39,7 @@ export interface Price {
   hotelID?: number;  
 }
 
-type Tour = {
+export interface Tour {
   id: string;
   amount: number;
   currency: string;
@@ -56,3 +56,39 @@ type Tour = {
     countryName: string;
   };
 };
+
+
+
+export interface PriceItem  {
+id: string;
+amount: number;
+currency: string;
+startDate: string; // consider using Date if parsing
+endDate: string; // consider using Date if parsing
+hotelID: string;
+hotel: {
+  id: number;
+name: string;
+img: string;
+cityId: number;
+cityName: string;
+countryId: string;
+countryName: string;
+};
+};
+
+export interface GetSearchPricesResponse {
+  prices: Record<string, PriceItem>;
+};
+
+const ObjectMap = {
+  aquapark: "Water park",
+  laundry: "Laundry",
+  parking: "Parking",
+  tennis_court: "Tennis court",
+  wifi: "Wi-Fi",
+} as const;
+
+export type ServiceKey = keyof typeof ObjectMap;
+export type ServiceStatus = "yes" | "none";
+export type ServicesT = Record<ServiceKey, ServiceStatus>;

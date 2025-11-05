@@ -1,39 +1,69 @@
-import { useEffect, useState, useRef, FormEvent } from "react";
+import {
+  useEffect,
+  useState,
+  useRef,
+  FormEvent,
+  Dispatch,
+  SetStateAction,
+} from "react";
 import Image from "next/image";
 
+import { Tour, GetSearchPricesResponse, PriceItem } from "@/src/types/entities";
 import {
   getCountries,
   searchGeo,
   startSearchPrices,
   getSearchPrices,
   getHotels,
+  stopSearchPrices,
 } from "@/api";
-import { Country, Hotel, City } from "@types/entities";
+import { Country, Hotel, City } from "@/src/types/entities";
 import cityImage from "@/public/components/CountriesSelect/city.png";
 import hotelImage from "@/public/components/CountriesSelect/hotel.png";
 
 type GeoEntity = Country | City | Hotel;
-
+class FetchPricesStepOneError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "FetchPricesStepOneError";
+  }
+}
+class FetchPricesStepTwoError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "FetchPricesStepTwoError";
+  }
+}
+class FetchHotelsError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "FetchHotelsError";
+  }
+}
 export default function CountriesInput({
   apiErrorHandler,
   setTours,
 }: {
-  apiErrorHandler: (error: Error) => void;
-  setTours: (tours: []) => void;
+  apiErrorHandler: (err: any) => void;
+  setTours: (tours: Tour[]) => void;
 }) {
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loadingMenu, setLoadingMenu] = useState<boolean>(false);
   const [places, setPlaces] = useState<GeoEntity[]>([]);
   const [search, setSearch] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
   const [selected, setSelected] = useState<GeoEntity | null>(null);
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState<boolean>(true);
 
-  const [isWaitingToken, setIsWaitingToken] = useState(false);
-  const [prices, setPrices] = useState({});
+  const [lastToken, setLastToken] = useState<string | null>(null);
+  const [tokenWaiting, setTokenWaiting] = useState<boolean>(false);
+  const activeSearchToken = useRef(0);
+  let retry: number = 0;
+  let timeoutID: ReturnType<typeof setTimeout> | null = null;
+  let resolveTimerPromise: ((reason?: any) => void) | null = null;
 
   async function fetchCountries() {
     try {
-      setLoading(true);
+      setLoadingMenu(true);
       const response = await getCountries();
       const data: Country[] = await response.json();
       if (response.ok) {
@@ -42,14 +72,14 @@ export default function CountriesInput({
     } catch (error) {
       console.error("Error fetching countries:", error);
     } finally {
-      setLoading(false);
+      setLoadingMenu(false);
     }
   }
 
   async function fetchSearchedGeo() {
     if (search.trim() === "") return;
     try {
-      setLoading(true);
+      setLoadingMenu(true);
       const response = await searchGeo(search);
       const data = await response.json();
       if (response.ok) {
@@ -58,7 +88,7 @@ export default function CountriesInput({
     } catch (error) {
       console.error("Error fetching searchGeo:", error);
     } finally {
-      setLoading(false);
+      setLoadingMenu(false);
     }
   }
 
@@ -79,7 +109,8 @@ export default function CountriesInput({
 
   function openInput() {
     if (isOpen === true) return;
-    if (!selected?.type || selected?.type === "country") fetchCountries();
+    if ((selected && !("type" in selected)) || selected?.type === "country")
+      fetchCountries();
     setIsOpen(true);
   }
 
@@ -90,74 +121,132 @@ export default function CountriesInput({
 
   async function formHandler(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const thisToken = ++activeSearchToken.current;
 
-    let cooldown: Date | null = null;
-    let attempt = 0;
-    const maxPermitedAttempts = 3;
     const countryID =
-      "countryId" in selected ? selected.countryId : selected.id;
-    setIsWaitingToken(true);
+      selected && "countryId" in selected ? selected?.countryId : selected?.id;
 
-    async function fetchPrices() {
-      // check on permit
-      if (cooldown && cooldown.getTime() - Date.now() > 0) return;
-      if (!selected) return;
-      attempt++;
-
+    async function fetchPricesStepOne() {
       try {
         const resToken = await startSearchPrices(countryID);
+        if (!resToken.ok) throw Error(resToken.statusText);
         const dataToken = await resToken.json();
-        cooldown = new Date(dataToken.waitUntil);
+        return dataToken;
+      } catch (err: any) {
+        throw new FetchPricesStepOneError(
+          "fetchPricesStepOne Error: " + err.message
+        );
+      }
+    }
 
-        const timeout: number = cooldown.getTime() - Date.now();
-
-        const prices = await new Promise((resolve, reject) =>
-          setTimeout(async () => {
+    async function fetchPricesStepTwo(dataToken: {
+      token: string;
+      waitUntil: string;
+    }) {
+      if (thisToken !== activeSearchToken.current) return null;
+      try {
+        const timeout: number =
+          new Date(dataToken.waitUntil).getTime() - Date.now();
+        const prices = await new Promise((resolve, reject) => {
+          if (timeoutID && resolveTimerPromise) {
+            resolveTimerPromise();
+            clearTimeout(timeoutID);
+          }
+          resolveTimerPromise = resolve;
+          timeoutID = setTimeout(async () => {
+            if (thisToken !== activeSearchToken.current) return resolve(null);
             try {
               const res = await getSearchPrices(dataToken.token);
+              if (!res.ok) {
+                throw new Error(`getSearchPrices failed: ${res.status}`);
+              }
               const data = await res.json();
               resolve(data);
             } catch (err) {
               reject(err);
             }
-          }, timeout)
-        );
-        attempt = maxPermitedAttempts;
-        setPrices(prices);
-      } catch (err) {
-        // retry
-        console.log(err);
-        if (attempt >= maxPermitedAttempts) {
-          apiErrorHandler(err);
-          return;
-        }
-        await fetchPrices();
+          }, timeout);
+        });
+        return prices;
+      } catch (err: unknown) {
+        if (err instanceof Error)
+          throw new FetchPricesStepTwoError(
+            "fetchPricesStepTwo Error: " + err.message
+          );
       }
     }
-    await fetchPrices();
 
-    const hotelsResponse = await getHotels(countryID);
-    const hotels = await hotelsResponse.json();
+    async function fetchHotels(prices: any) {
+      if (thisToken !== activeSearchToken.current) return null;
+      try {
+        const hotelsResponse = await getHotels(countryID);
+        const hotels = await hotelsResponse.json();
+        const arrayPrices = Object.values(prices).flatMap((price: any) =>
+          Object.values(price)
+        );
+        console.log(";", arrayPrices);
+        const arrayHotels = Object.values(hotels);
 
-    const arrayPrices = Object.values(prices).flatMap((price) =>
-      Object.values(price)
-    );
-    const arrayHotels = Object.values(hotels);
+        let tours = arrayPrices.map((price: any) => {
+          const matchHotel = arrayHotels.find(
+            (hotel: any) => price.hotelID == hotel.id
+          );
+          if (matchHotel) price.hotel = matchHotel;
 
-    let tours = arrayPrices.map((price) => {
-      const matchHotel = arrayHotels.find((hotel) => price.hotelID == hotel.id);
+          return price;
+        });
+        tours = tours.filter((tour) => "hotel" in tour);
+        setTours(tours);
 
-      if (matchHotel) price.hotel = matchHotel;
+        console.log(
+          "\nprices:",
+          prices,
+          "\nhotels:",
+          hotels,
+          "\ntours:",
+          tours
+        );
+      } catch (err) {
+        if (err instanceof Error)
+          throw new FetchHotelsError("FetchHotels Error: " + err.message);
+      }
+    }
 
-      return price;
-    });
-    tours = tours.filter((tour) => "hotel" in tour);
+    async function submit() {
+      if (!selected) return;
+      try {
+        if (tokenWaiting) {
+          await stopSearchPrices(lastToken);
+          if (timeoutID && resolveTimerPromise) {
+            resolveTimerPromise();
+            clearTimeout(timeoutID);
+          }
+        }
+        setTokenWaiting(true);
+        const dataToken = await fetchPricesStepOne();
+        if (!dataToken || thisToken !== activeSearchToken.current) return;
+        setLastToken(dataToken?.token);
+        const prices = await fetchPricesStepTwo(dataToken);
+        if (!prices || thisToken !== activeSearchToken.current) return;
+        await fetchHotels(prices);
+        if (thisToken !== activeSearchToken.current) return;
+        setTokenWaiting(false);
+      } catch (err) {
+        console.log("retry");
+        console.log(err);
 
-    console.log("prices", prices);
-    console.log("hotels", hotels);
-    console.log("tours", tours);
-    setTours(tours);
-    setIsWaitingToken(false);
+        setTokenWaiting(false);
+        if (retry >= 2) {
+          retry = 0;
+          apiErrorHandler(err);
+          return;
+        } else {
+          retry += 1;
+          await submit();
+        }
+      }
+    }
+    submit();
   }
 
   return (
@@ -182,26 +271,25 @@ export default function CountriesInput({
           </button>
         </div>
 
-        {isOpen && (
+        {isOpen && !!places.length && (
           <ul className="countries-select__list">
-            {loading && <li>Завантажуємо...</li>}
-
+            {loadingMenu && <li>Завантажуємо...</li>}
             {places.map((country: GeoEntity) => (
               <li
                 key={country.id}
                 className="countries-select__item"
                 onClick={() => selectOption(country)}
               >
-                {!!country.flag && (
+                {!!(country as any).flag && (
                   <img
-                    src={country.flag}
+                    src={(country as any).flag}
                     alt={country.name}
                     className="countries-select__flag"
                     width={40}
                     height={40}
                   />
                 )}
-                {country.type === "city" && (
+                {(country as any).type === "city" && (
                   <Image
                     src={cityImage}
                     alt={country.name}
@@ -210,7 +298,7 @@ export default function CountriesInput({
                     height={40}
                   />
                 )}
-                {country.type === "hotel" && (
+                {(country as any).type === "hotel" && (
                   <Image
                     src={hotelImage}
                     alt={country.name}
@@ -230,10 +318,10 @@ export default function CountriesInput({
           className={
             "countries-select__submit" +
             (!!selected ? " countries-select__submit--active" : "") +
-            (isWaitingToken ? " countries-select__submit--in-process" : "")
+            (tokenWaiting ? " countries-select__submit--in-process" : "")
           }
         >
-          {isWaitingToken ? "Шукаєм" : "Знайти"}
+          {tokenWaiting ? "Шукаєм" : "Знайти"}
         </button>
       </div>
     </form>

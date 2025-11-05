@@ -1,15 +1,15 @@
-import { Tour } from "@types/entities";
+import { Tour } from "@/src/types/entities";
 import Link from "next/link";
 
-export default function SearchResults({ tours }: { tours: Tour[] }) {
+export default function SearchResults({ tours }: { tours: Tour[] | null }) {
   return (
     <section className="tour-list">
-      {tours.length == 0 && (
+      {tours?.length == 0 && (
         <h3 className="tour__empty-state">
           По цьому запиту, турів поки немає, але невдовзі вони зʼявляться
         </h3>
       )}
-      {tours.map((tour) => (
+      {tours?.map((tour) => (
         <article className="tour" key={tour.id}>
           <h3 className="tour__title">{tour.hotel.name}</h3>
           <p className="tour__place">
